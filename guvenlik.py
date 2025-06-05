@@ -11,6 +11,7 @@ led_pin = 17        # LED
 TRIG = 23           # HC-SR04 TRIG
 ECHO = 24           # HC-SR04 ECHO
 servo_pin = 27      # Servo motor (GPIO 27)
+buzzer_pin = 4      # Buzzer (GPIO 4)
 
 # GPIO setup
 GPIO.setup(pir_pin, GPIO.IN)
@@ -18,6 +19,7 @@ GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
 GPIO.setup(servo_pin, GPIO.OUT)
+GPIO.setup(buzzer_pin, GPIO.OUT)
 
 # Servo setup
 servo = GPIO.PWM(servo_pin, 50)  # 50Hz frequency
@@ -35,12 +37,19 @@ def set_servo_angle(angle):
     servo.ChangeDutyCycle(0)
 
 def unlock():
+    global lock_open
     print("Kilit ACILDI")
-    set_servo_angle(90)  # open position
+    set_servo_angle(90)  # Open position
+    GPIO.output(buzzer_pin, True)
+    time.sleep(0.5)
+    GPIO.output(buzzer_pin, False)
+    lock_open = True
 
 def lock():
+    global lock_open
     print("Kilit KAPANDI")
-    set_servo_angle(0)   # locked position
+    set_servo_angle(0)  # Locked position
+    lock_open = False
 
 try:
     while True:
@@ -76,15 +85,12 @@ try:
             print("Mesafe:", distance - 0.5, "cm")
             if distance < 30 and not lock_open:
                 unlock()
-                lock_open = True
             elif distance >= 30 and lock_open:
                 lock()
-                lock_open = False
         else:
             print("Menzil asildi")
             if lock_open:
                 lock()
-                lock_open = False
 
         time.sleep(0.5)
 
