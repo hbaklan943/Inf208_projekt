@@ -25,48 +25,67 @@ servo.start(0)
 
 print("Sistem baslatildi...")
 
-def lock_open():
-    print("Kilit aciliyor")
-    servo.ChangeDutyCycle(7.5)  # ~90 degrees (adjust if needed)
-    time.sleep(1)
-    servo.ChangeDutyCycle(2.5)  # back to lock position (~0 degrees)
-    time.sleep(0.5)
-    servo.ChangeDutyCycle(0)    # stop sending signal
+# Lock state tracker
+lock_open = False
 
-while True:
-    # --- PIR Motion Detection ---
-    if GPIO.input(pir_pin):
-        print("HAREKET ALARMI!")
-        GPIO.output(led_pin, True)
-        time.sleep(1)
-        GPIO.output(led_pin, False)
+def set_servo_angle(angle):
+    duty = 2.5 + (angle / 180.0) * 10  # Map angle to duty cycle
+    servo.ChangeDutyCycle(duty)
+    time.sleep(0.3)
+    servo.ChangeDutyCycle(0)
 
-    # --- Distance Measurement ---
-    GPIO.output(TRIG, False)
-    time.sleep(0.1)
+def unlock():
+    print("Kilit ACILDI")
+    set_servo_angle(90)  # open position
 
-    GPIO.output(TRIG, True)
-    time.sleep(0.00001)
-    GPIO.output(TRIG, False)
+def lock():
+    print("Kilit KAPANDI")
+    set_servo_angle(0)   # locked position
 
-    pulse_start = time.time()
-    pulse_end = time.time()
+try:
+    while True:
+        # --- PIR Motion Detection ---
+        if GPIO.input(pir_pin):
+            print("HAREKET ALARMI!")
+            GPIO.output(led_pin, True)
+            time.sleep(1)
+            GPIO.output(led_pin, False)
 
-    while GPIO.input(ECHO) == 0:
+        # --- Distance Measurement ---
+        GPIO.output(TRIG, False)
+        time.sleep(0.1)
+
+        GPIO.output(TRIG, True)
+        time.sleep(0.00001)
+        GPIO.output(TRIG, False)
+
         pulse_start = time.time()
-
-    while GPIO.input(ECHO) == 1:
         pulse_end = time.time()
 
-    pulse_duration = pulse_end - pulse_start
-    distance = pulse_duration * 17150
-    distance = round(distance, 2)
+        while GPIO.input(ECHO) == 0:
+            pulse_start = time.time()
 
-    if 2 < distance < 400:
-        print("Mesafe:", distance - 0.5, "cm")
-        if distance < 20:
-            lock_open()
-    else:
-        print("Menzil asildi")
+        while GPIO.input(ECHO) == 1:
+            pulse_end = time.time()
 
-    time.sleep(0.5)
+        pulse_duration = pulse_end - pulse_start
+        distance = pulse_duration * 17150
+        distance = round(distance, 2)
+
+        if 2 < distance < 400:
+            print("Mesafe:", distance - 0.5, "cm")
+            if distance < 30 and not lock_open:
+                unlock()
+                lock_open = True
+            elif distance >= 30 and lock_open:
+                lock()
+                lock_open = False
+        else:
+            print("Menzil asildi")
+
+        time.sleep(0.5)
+
+except KeyboardInterrupt:
+    print("Temizleniyor...")
+    servo.stop()
+    GPIO.cleanup()
