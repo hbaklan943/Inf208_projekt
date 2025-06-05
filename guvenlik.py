@@ -82,6 +82,9 @@ try:
                 lock_open = False
         else:
             print("Menzil asildi")
+            if lock_open:
+                lock()
+                lock_open = False
 
         time.sleep(0.5)
 
