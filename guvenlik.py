@@ -10,14 +10,28 @@ pir_pin = 18        # PIR sensor
 led_pin = 17        # LED
 TRIG = 23           # HC-SR04 TRIG
 ECHO = 24           # HC-SR04 ECHO
+servo_pin = 27      # Servo motor (GPIO 27)
 
 # GPIO setup
 GPIO.setup(pir_pin, GPIO.IN)
 GPIO.setup(led_pin, GPIO.OUT)
 GPIO.setup(TRIG, GPIO.OUT)
 GPIO.setup(ECHO, GPIO.IN)
+GPIO.setup(servo_pin, GPIO.OUT)
+
+# Servo setup
+servo = GPIO.PWM(servo_pin, 50)  # 50Hz frequency
+servo.start(0)
 
 print("Sistem baslatildi...")
+
+def lock_open():
+    print("Kilit aciliyor")
+    servo.ChangeDutyCycle(7.5)  # ~90 degrees (adjust if needed)
+    time.sleep(1)
+    servo.ChangeDutyCycle(2.5)  # back to lock position (~0 degrees)
+    time.sleep(0.5)
+    servo.ChangeDutyCycle(0)    # stop sending signal
 
 while True:
     # --- PIR Motion Detection ---
@@ -38,11 +52,9 @@ while True:
     pulse_start = time.time()
     pulse_end = time.time()
 
-    # Wait for echo to go high
     while GPIO.input(ECHO) == 0:
         pulse_start = time.time()
-    
-    # Wait for echo to go low
+
     while GPIO.input(ECHO) == 1:
         pulse_end = time.time()
 
@@ -52,6 +64,8 @@ while True:
 
     if 2 < distance < 400:
         print("Mesafe:", distance - 0.5, "cm")
+        if distance < 20:
+            lock_open()
     else:
         print("Menzil asildi")
 
