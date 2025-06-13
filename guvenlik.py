@@ -13,6 +13,20 @@ ECHO_PIN = 24       # HC-SR04 ECHO
 SERVO_PIN = 27      # Servo motor
 BUZZER_PIN = 4      # Buzzer
 
+# Security and distance thresholds
+DISTANCE_THRESHOLD_CM = 30  # Distance threshold (cm) for door lock to open/close
+MIN_DISTANCE_CM = 2         # Minimum distance (cm) the ultrasonic sensor can detect
+MAX_DISTANCE_CM = 400       # Maximum distance (cm) the ultrasonic sensor can detect
+ULTRASONIC_OFFSET = 0.5     # Calibration offset for the ultrasonic sensor
+SOUND_SPEED = 17150         # Speed of sound in air (cm/s, 34300 / 2 for one way)
+
+# Timing constants
+PIR_DEBOUNCE_TIME = 1.0     # Wait time (s) after PIR detection
+SERVO_MOVE_DELAY = 0.3      # Wait time (s) after servo movement
+BUZZER_DURATION = 0.5       # Buzzer sound duration (s)
+ULTRASONIC_PULSE_DELAY = 0.00001 # Ultrasonic trigger pulse duration (s)
+ULTRASONIC_READ_DELAY = 0.1 # Wait time (s) between ultrasonic sensor readings
+
 # GPIO setup
 GPIO.setup(PIR_PIN, GPIO.IN)
 GPIO.setup(LED_PIN, GPIO.OUT)
@@ -33,7 +47,7 @@ lock_open = False
 def set_servo_angle(angle):
     duty = 2.5 + (angle / 180.0) * 10  # Map angle to duty cycle
     servo.ChangeDutyCycle(duty)
-    time.sleep(0.3)
+    time.sleep(SERVO_MOVE_DELAY)
     servo.ChangeDutyCycle(0)
 
 def unlock():
@@ -41,7 +55,7 @@ def unlock():
     print("Das Schloss ist geöffnet.")
     set_servo_angle(90)  # Open position
     GPIO.output(BUZZER_PIN, True)
-    time.sleep(0.5)
+    time.sleep(BUZZER_DURATION)
     GPIO.output(BUZZER_PIN, False)
     lock_open = True
 
@@ -57,15 +71,15 @@ try:
         if GPIO.input(PIR_PIN):
             print("Bewegung erkannt!")
             GPIO.output(LED_PIN, True)
-            time.sleep(1)
+            time.sleep(PIR_DEBOUNCE_TIME)
             GPIO.output(LED_PIN, False)
 
         # --- Distance Measurement ---
         GPIO.output(TRIG_PIN, False)
-        time.sleep(0.1)
+        time.sleep(ULTRASONIC_READ_DELAY)
 
         GPIO.output(TRIG_PIN, True)
-        time.sleep(0.00001)
+        time.sleep(ULTRASONIC_PULSE_DELAY)
         GPIO.output(TRIG_PIN, False)
 
         pulse_start = time.time()
@@ -78,14 +92,14 @@ try:
             pulse_end = time.time()
 
         pulse_duration = pulse_end - pulse_start
-        distance = pulse_duration * 17150
-        distance = round(distance, 2)
+        distance = pulse_duration * SOUND_SPEED
+        distance = round(distance, MIN_DISTANCE_CM)
 
-        if 2 < distance < 400:
-            print("Distanz:", distance - 0.5, "cm")
-            if distance < 30 and not lock_open:
+        if MIN_DISTANCE_CM < distance < MAX_DISTANCE_CM:
+            print("Distanz:", distance - ULTRASONIC_OFFSET, "cm")
+            if distance < DISTANCE_THRESHOLD_CM and not lock_open:
                 unlock()
-            elif distance >= 30 and lock_open:
+            elif distance >= DISTANCE_THRESHOLD_CM and lock_open:
                 lock()
         else:
             print("Außerhalb des Bereichs")
