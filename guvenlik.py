@@ -65,6 +65,29 @@ def lock():
     set_servo_angle(0)  # Locked position
     lock_open = False
 
+def measure_distance():
+    GPIO.output(TRIG_PIN, False)
+    time.sleep(ULTRASONIC_READ_DELAY)
+
+    GPIO.output(TRIG_PIN, True)
+    time.sleep(ULTRASONIC_PULSE_DELAY)
+    GPIO.output(TRIG_PIN, False)
+
+    pulse_start = time.time()
+    pulse_end = time.time()
+
+    while GPIO.input(ECHO_PIN) == 0:
+        pulse_start = time.time()
+
+    while GPIO.input(ECHO_PIN) == 1:
+        pulse_end = time.time()
+
+    pulse_duration = pulse_end - pulse_start
+    distance = pulse_duration * SOUND_SPEED
+    distance = round(distance, 2)
+
+    return distance - ULTRASONIC_OFFSET
+
 try:
     while True:
         # --- PIR Motion Detection ---
@@ -74,29 +97,10 @@ try:
             time.sleep(PIR_DEBOUNCE_TIME)
             GPIO.output(LED_PIN, False)
 
-        # --- Distance Measurement ---
-        GPIO.output(TRIG_PIN, False)
-        time.sleep(ULTRASONIC_READ_DELAY)
-
-        GPIO.output(TRIG_PIN, True)
-        time.sleep(ULTRASONIC_PULSE_DELAY)
-        GPIO.output(TRIG_PIN, False)
-
-        pulse_start = time.time()
-        pulse_end = time.time()
-
-        while GPIO.input(ECHO_PIN) == 0:
-            pulse_start = time.time()
-
-        while GPIO.input(ECHO_PIN) == 1:
-            pulse_end = time.time()
-
-        pulse_duration = pulse_end - pulse_start
-        distance = pulse_duration * SOUND_SPEED
-        distance = round(distance, MIN_DISTANCE_CM)
+        distance = measure_distance()
 
         if MIN_DISTANCE_CM < distance < MAX_DISTANCE_CM:
-            print("Distanz:", distance - ULTRASONIC_OFFSET, "cm")
+            print("Distanz:", distance, "cm")
             if distance < DISTANCE_THRESHOLD_CM and not lock_open:
                 unlock()
             elif distance >= DISTANCE_THRESHOLD_CM and lock_open:
